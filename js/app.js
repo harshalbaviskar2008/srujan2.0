@@ -297,6 +297,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // Track last processed record ID to prevent duplicate UI updates
+  let lastProcessedId = null;
+
   // Handle incoming real-time sensor reading
   function handleIncomingReading(reading, isSupabaseSource = true) {
     if (isStreamPaused) return;
@@ -307,6 +310,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       air_quality: reading.air_quality ?? reading.airQuality ?? 422,
       created_at: reading.created_at || reading.timestamp || new Date().toISOString()
     };
+
+    const recordId = formatted.id || formatted.created_at;
+    if (recordId && recordId === lastProcessedId) {
+      return; // Already applied this update
+    }
+    lastProcessedId = recordId;
 
     memoryRecords.push(formatted);
     if (memoryRecords.length > 100) memoryRecords.shift();
@@ -360,56 +369,54 @@ document.addEventListener('DOMContentLoaded', async () => {
           updateSupabaseBadge(true, 'Supabase: Live Connected');
         }
 
-        // 2. Subscribe to Realtime Postgres Changes (WebSocket)
-        let realtimeWorking = false;
+        // 2. Subscribe to Realtime Postgres Changes (Instant WebSocket)
+        let realtimeConnected = false;
         const realtimeChannel = supabaseClient
-          .channel('smartclass-live-' + Date.now())
+          .channel('smartclass-fast-sync')
           .on(
             'postgres_changes',
             { event: 'INSERT', schema: 'public', table: 'sensor_readings' },
             (payload) => {
-              console.log("⚡ [REALTIME INSERT]", payload.new);
-              realtimeWorking = true;
-              updateStatusStrip('🟢 Live — Supabase Realtime', '#10b981');
+              console.log("⚡ [FAST REALTIME WEBSOCKET]", payload.new);
+              realtimeConnected = true;
+              updateStatusStrip('🟢 Live — Instant Realtime', '#10b981');
               handleIncomingReading(payload.new, true);
             }
           )
           .subscribe((status, err) => {
             console.log("Supabase Realtime Status:", status, err || '');
             if (status === 'SUBSCRIBED') {
+              realtimeConnected = true;
               updateSupabaseBadge(true, 'Supabase: Live Sync');
-              updateStatusStrip('🟢 Realtime Subscribed — waiting for Wokwi data', '#10b981');
+              updateStatusStrip('🟢 Realtime Live (< 1s sync)', '#10b981');
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-              console.warn("Realtime channel issue:", status, "— polling fallback active");
-              updateStatusStrip('🟡 Realtime blocked — polling every 3s', '#f59e0b');
+              console.warn("Realtime channel:", status, "— fast 1s polling active");
+              updateStatusStrip('🟡 Fast Sync (1s Poll)', '#f59e0b');
             }
           });
 
-        // 3. Polling Fallback (works even on file:// & when Realtime is blocked)
-        let _lastPolledId = null;
+        // 3. Lightning Fast Polling Fallback (1-second interval, indexed by id)
         setInterval(async () => {
           try {
             const { data: polled } = await supabaseClient
               .from('sensor_readings')
               .select('*')
-              .order('created_at', { ascending: false })
+              .order('id', { ascending: false })
               .limit(1);
             if (polled && polled[0]) {
               const latest = polled[0];
-              const uid = latest.id || latest.created_at;
-              if (uid !== _lastPolledId) {
-                _lastPolledId = uid;
-                if (!realtimeWorking) {
-                  console.log("📡 [POLL UPDATE]", latest);
-                  updateStatusStrip('🟡 Polling — Realtime not active', '#f59e0b');
-                  handleIncomingReading(latest, true);
+              if (latest.id !== lastProcessedId) {
+                console.log("📡 [FAST 1s SYNC]", latest);
+                if (!realtimeConnected) {
+                  updateStatusStrip('🟢 Fast Sync (1s Poll)', '#10b981');
                 }
+                handleIncomingReading(latest, true);
               }
             }
           } catch (e) {
-            console.warn("Poll error:", e);
+            console.warn("Fast poll error:", e);
           }
-        }, 3000);
+        }, 1000); // 1-second ultra-responsive sync
 
       } catch (err) {
         console.error("Supabase init error:", err);

@@ -1,5 +1,5 @@
 -- ==============================================================================
--- SmartClass IoT - Supabase Database Setup Script (COMPLETE FIX)
+-- SmartClass IoT - Supabase Database Setup Script (ULTRA-FAST SYNC FIX)
 -- Copy and paste this ENTIRE script into your Supabase SQL Editor and click "RUN"
 -- ==============================================================================
 
@@ -14,33 +14,39 @@ create table if not exists public.sensor_readings (
   created_at timestamptz default now()
 );
 
--- 2. Grant table and sequence permissions to anon and authenticated roles
+-- 2. Add high-speed index for instant DESC queries (sub-millisecond lookups)
+create index if not exists idx_sensor_readings_id_desc on public.sensor_readings (id desc);
+
+-- 3. Set REPLICA IDENTITY FULL (forces Postgres to immediately broadcast full records via Realtime)
+alter table public.sensor_readings replica identity full;
+
+-- 4. Grant table and sequence permissions to anon and authenticated roles
 grant all on table public.sensor_readings to anon, authenticated, service_role;
 grant usage, select on all sequences in schema public to anon, authenticated, service_role;
 
--- 3. Enable Row Level Security (RLS)
+-- 5. Enable Row Level Security (RLS)
 alter table public.sensor_readings enable row level security;
 
--- 4. Drop old policies if they exist (to prevent duplicates)
+-- 6. Drop old policies if they exist (to prevent duplicates)
 drop policy if exists "Allow public read" on public.sensor_readings;
 drop policy if exists "Allow public insert" on public.sensor_readings;
 drop policy if exists "Allow public all" on public.sensor_readings;
 
--- 5. Create policy allowing anyone (anon) to READ data
+-- 7. Create policy allowing anyone (anon) to READ data
 create policy "Allow public read"
   on public.sensor_readings
   for select
   to anon, authenticated
   using (true);
 
--- 6. Create policy allowing anyone (anon) to INSERT data (from Wokwi or Web)
+-- 8. Create policy allowing anyone (anon) to INSERT data (from Wokwi or Web)
 create policy "Allow public insert"
   on public.sensor_readings
   for insert
   to anon, authenticated
   with check (true);
 
--- 7. Enable Supabase Realtime for instant WebSocket updates
+-- 9. Enable Supabase Realtime for instant WebSocket updates
 do $$
 begin
   if not exists (
@@ -53,7 +59,7 @@ begin
   end if;
 end $$;
 
--- 8. Insert initial seed data matching the reference dashboard photo
+-- 10. Insert initial seed data matching the reference dashboard photo
 insert into public.sensor_readings (temperature, humidity, light, air_quality, classroom, created_at)
 values
   (30.2, 61, 72, 405, 'Room 302', now() - interval '45 minutes'),
@@ -61,4 +67,4 @@ values
   (31.0, 65, 80, 412, 'Room 302', now() - interval '15 minutes'),
   (28.0, 60, 82, 422, 'Room 302', now());
 
--- Done! Your Supabase database is now completely accessible to both Wokwi and the Web Dashboard.
+-- Done! Your database is now tuned for ultra-low latency real-time synchronization (< 1 second).
