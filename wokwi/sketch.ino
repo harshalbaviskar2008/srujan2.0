@@ -1,26 +1,25 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
 #include "DHTesp.h"
 
 // --------------------------------------------------------------------------
-// Wokwi Virtual WiFi Credentials
+// 1. Wokwi Virtual WiFi Credentials (Built into Wokwi - No password needed)
 // --------------------------------------------------------------------------
 const char* ssid = "Wokwi-GUEST";
 const char* password = "";
 
 // --------------------------------------------------------------------------
-// Target Backend API Endpoint:
-// 1. If using ngrok tunnel (recommended for online Wokwi):
-//    String serverUrl = "https://your-ngrok-subdomain.ngrok-free.app/api/sensor-data";
-// 2. If using local IP (with Wokwi IoT Gateway or local simulator):
-//    String serverUrl = "http://192.168.1.XX:3000/api/sensor-data";
+// 2. Supabase Project Credentials (DIRECT CLOUD - NO NODE.JS - NO NGROK!)
+// Replace with your Project URL and anon key from your Supabase Dashboard:
 // --------------------------------------------------------------------------
-String serverUrl = "http://localhost:3000/api/sensor-data";
+String supabaseUrl = "https://dokmayffuxynebgvxkrv.supabase.co";
+String supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRva21heWZmdXh5bmViZ3Z4a3J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTUwOTUzMjMsImV4cCI6MjExMDY3MTMyM30.X6SN189ldttU0VapKtFMW-jLlrhXUw_Ts59xF9qog3U";
 
 // Sensor Pin Definitions
-const int DHT_PIN = 15;        // DHT22 Temperature & Humidity Sensor
-const int LDR_PIN = 34;        // Photoresistor (LDR) Analog Input (0-4095)
+const int DHT_PIN = 15;         // DHT22 Temperature & Humidity Sensor
+const int LDR_PIN = 34;         // Photoresistor (LDR) Analog Input (0-4095)
 const int AIR_QUALITY_PIN = 35; // Potentiometer Simulating MQ-135 Gas / AQI Sensor
 
 DHTesp dhtSensor;
@@ -36,8 +35,8 @@ void setup() {
   delay(1000);
 
   Serial.println("\n=========================================================");
-  Serial.println("  SmartClass - Wokwi ESP32 Classroom Telemetry Node       ");
-  Serial.println("  Connected to MongoDB Atlas & Live Real-Time Dashboard   ");
+  Serial.println("  SmartClass - Wokwi ESP32 Direct Supabase Node          ");
+  Serial.println("  Cloud Serverless IoT (No Node.js or ngrok needed!)     ");
   Serial.println("=========================================================");
 
   // Initialize DHT22
@@ -59,7 +58,11 @@ void setup() {
   Serial.println("\n✔ WiFi Connected Successfully!");
   Serial.print("ESP32 Local IP: ");
   Serial.println(WiFi.localIP());
-  Serial.println("Streaming sensor readings to MongoDB & Dashboard...\n");
+  Serial.println("Ready to push readings directly to Supabase!\n");
+
+  if (supabaseUrl.indexOf("YOUR_PROJECT_ID") != -1) {
+    Serial.println("⚠️ NOTICE: Please update supabaseUrl and supabaseKey with your credentials from supabase.com!");
+  }
 }
 
 void loop() {
@@ -83,7 +86,7 @@ void loop() {
     int rawAir = analogRead(AIR_QUALITY_PIN);
     int airQuality = map(rawAir, 0, 4095, 100, 1000);
 
-    // Check if any value changed significantly
+    // Detect if values moved
     bool hasChanged = (abs(temperature - lastTemp) >= 0.2) ||
                       (abs(humidity - lastHum) >= 1.0) ||
                       (abs(lightLevel - lastLight) >= 1.0) ||
@@ -101,32 +104,55 @@ void loop() {
       Serial.printf("   Temp: %.1f °C | Humidity: %.0f %% | Light: %.0f %% | Air: %d AQI\n",
                     temperature, humidity, lightLevel, airQuality);
 
-      // Create JSON Payload
+      // Create JSON Payload matching Supabase table columns
       StaticJsonDocument<256> doc;
       doc["temperature"] = temperature;
       doc["humidity"] = humidity;
       doc["light"] = lightLevel;
-      doc["airQuality"] = airQuality;
+      doc["air_quality"] = airQuality;
       doc["classroom"] = "Room 302";
 
       String jsonPayload;
       serializeJson(doc, jsonPayload);
 
-      // Send HTTP POST to Node.js backend & MongoDB
-      HTTPClient http;
-      http.begin(serverUrl);
-      http.addHeader("Content-Type", "application/json");
+      // Only send if user has entered real URL
+      if (supabaseUrl.indexOf("YOUR_PROJECT_ID") == -1) {
+        WiFiClientSecure client;
+        client.setInsecure(); // Skip SSL certificate check for IoT simulation
 
-      int httpResponseCode = http.POST(jsonPayload);
+        // Automatically format endpoint path if only base URL was provided
+        String targetUrl = supabaseUrl;
+        if (!targetUrl.endsWith("/rest/v1/sensor_readings")) {
+          while (targetUrl.endsWith("/")) {
+            targetUrl.remove(targetUrl.length() - 1);
+          }
+          if (targetUrl.endsWith("/rest/v1")) {
+            targetUrl += "/sensor_readings";
+          } else {
+            targetUrl += "/rest/v1/sensor_readings";
+          }
+        }
 
-      if (httpResponseCode > 0) {
-        String response = http.getString();
-        Serial.printf("✔ [HTTP %d SUCCESS] MongoDB Synced: %s\n", httpResponseCode, response.c_str());
+        HTTPClient http;
+        http.begin(client, targetUrl);
+        http.addHeader("Content-Type", "application/json");
+        http.addHeader("apikey", supabaseKey);
+        http.addHeader("Authorization", "Bearer " + supabaseKey);
+        http.addHeader("Prefer", "return=minimal");
+
+        int httpResponseCode = http.POST(jsonPayload);
+
+        if (httpResponseCode == 201 || httpResponseCode == 200 || httpResponseCode == 204) {
+          Serial.printf("✔ [SUPABASE SYNC SUCCESS] HTTP Code: %d (Saved to Cloud DB!)\n", httpResponseCode);
+        } else {
+          String response = http.getString();
+          Serial.printf("❌ [SUPABASE POST ERROR] Code %d: %s\n", httpResponseCode, response.c_str());
+        }
+
+        http.end();
       } else {
-        Serial.printf("❌ [HTTP POST ERROR] Code %d (Verify serverUrl tunnel is active)\n", httpResponseCode);
+        Serial.println("ℹ Simulation active. To sync to cloud, paste your Supabase URL & Key in sketch.ino line 14!");
       }
-
-      http.end();
     }
   } else {
     Serial.println("⚠ WiFi Disconnected. Reconnecting...");

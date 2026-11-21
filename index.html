@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartClass - Classroom Environment Monitoring</title>
+  
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <!-- Supabase JS Client (No Node.js needed!) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-config.js"></script>
+  
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Ambient Fluid Pastel Waves Background (Exact match to reference photo) -->
+  <div class="ambient-canvas-background">
+    <!-- Top-Right Pastel Waves (Cyan, Lavender, Pink) -->
+    <svg class="ambient-wave wave-top-right" viewBox="0 0 1200 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="pastelGradTop" x1="100%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#bae6fd" stop-opacity="0.55"/>
+          <stop offset="35%" stop-color="#ddd6fe" stop-opacity="0.45"/>
+          <stop offset="70%" stop-color="#fbcfe8" stop-opacity="0.4"/>
+          <stop offset="100%" stop-color="#fce7f3" stop-opacity="0"/>
+        </linearGradient>
+        <linearGradient id="pastelGradTop2" x1="100%" y1="20%" x2="20%" y2="100%">
+          <stop offset="0%" stop-color="#e0e7ff" stop-opacity="0.4"/>
+          <stop offset="60%" stop-color="#f5d0fe" stop-opacity="0.3"/>
+          <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <path d="M400,0 C650,120 780,40 920,180 C1060,320 1120,200 1200,280 L1200,0 Z" fill="url(#pastelGradTop)"/>
+      <path d="M600,0 C750,180 890,100 1020,220 C1120,300 1160,240 1200,320 L1200,0 Z" fill="url(#pastelGradTop2)"/>
+    </svg>
+
+    <!-- Bottom-Right Mint & Lavender Waves (Behind Alerts & Recommendation) -->
+    <svg class="ambient-wave wave-bottom-right" viewBox="0 0 1000 700" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="mintGradBottom" x1="0%" y1="100%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#99f6e4" stop-opacity="0.45"/>
+          <stop offset="40%" stop-color="#a7f3d0" stop-opacity="0.35"/>
+          <stop offset="75%" stop-color="#ddd6fe" stop-opacity="0.25"/>
+          <stop offset="100%" stop-color="#fbcfe8" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <path d="M0,700 C250,560 480,680 720,520 C850,430 920,490 1000,450 L1000,700 Z" fill="url(#mintGradBottom)"/>
+    </svg>
+
+    <!-- Soft Ambient Radial Glows -->
+    <div class="ambient-glow glow-sidebar"></div>
+    <div class="ambient-glow glow-center"></div>
+  </div>
+
+  <!-- Entire Application Container -->
+  <div class="dashboard-layout">
+    
+    <!-- LEFT FLOATING SIDEBAR -->
+    <aside class="sidebar-panel">
+      
+      <!-- Brand Logo & Title -->
+      <div class="brand-box">
+        <div class="brand-icon-box">
+          <i class="fa-solid fa-graduation-cap"></i>
+        </div>
+        <div class="brand-text-col">
+          <h2 class="brand-title">SmartClass</h2>
+          <span class="brand-subtitle">Classroom Monitoring</span>
+        </div>
+      </div>
+
+      <!-- Navigation Links -->
+      <nav class="sidebar-nav">
+        <a href="#dashboard" class="nav-item active" id="nav-btn-dashboard" data-tab="dashboard">
+          <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="#live-data" class="nav-item" id="nav-btn-live" data-tab="live">
+          <span class="nav-icon"><i class="fa-solid fa-wave-square"></i></span>
+          <span class="nav-label">Live Data</span>
+        </a>
+        <a href="#history" class="nav-item" id="nav-btn-history" data-tab="history">
+          <span class="nav-icon"><i class="fa-regular fa-clock"></i></span>
+          <span class="nav-label">History</span>
+        </a>
+        <a href="#alerts" class="nav-item" id="nav-btn-alerts" data-tab="alerts">
+          <span class="nav-icon"><i class="fa-regular fa-bell"></i></span>
+          <span class="nav-label">Alerts</span>
+          <span class="nav-badge" id="sidebar-badge-alerts">2</span>
+        </a>
+        <a href="#reports" class="nav-item" id="nav-btn-reports" data-tab="reports">
+          <span class="nav-icon"><i class="fa-regular fa-file-lines"></i></span>
+          <span class="nav-label">Reports</span>
+        </a>
+        <a href="#settings" class="nav-item" id="nav-btn-settings" data-tab="settings">
+          <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+          <span class="nav-label">Settings</span>
+        </a>
+      </nav>
+
+      <!-- Sidebar Bottom: System Status, Supabase Sync, and Time -->
+      <div class="sidebar-footer">
+        <!-- Delicate liquid wave at bottom of sidebar -->
+        <svg class="sidebar-bottom-wave" viewBox="0 0 200 80" preserveAspectRatio="none">
+          <path d="M0,80 C60,40 120,70 200,30 L200,80 Z" fill="#fbcfe8" opacity="0.35"/>
+          <path d="M0,80 C80,50 140,75 200,45 L200,80 Z" fill="#ddd6fe" opacity="0.3"/>
+        </svg>
+
+        <div class="system-status-indicator">
+          <span class="pulse-dot-online" id="status-dot"></span>
+          <span class="status-name" id="status-text">System Online</span>
+        </div>
+        <div class="last-sync-block">
+          <span class="sync-caption">Last updated</span>
+          <span class="sync-timestamp" id="disp-last-updated">Nov 9, 2026 • 7:30 PM</span>
+        </div>
+        <div class="mongo-status-pill" id="mongo-status-badge" title="Live Supabase Cloud Database Sync Status">
+          <span class="mongo-dot"></span>
+          <span id="mongo-status-text">Supabase: Live Sync</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN RIGHT CONTENT VIEWPORT -->
+    <main class="main-viewport">
+      
+      <!-- TOP HEADER (Clean Title + Clock Pill) -->
+      <header class="dashboard-header">
+        <div class="header-title-block">
+          <div class="header-vertical-accent"></div>
+          <div>
+            <h1 class="header-main-title" id="page-title">Classroom Environment</h1>
+            <p class="header-subtitle" id="page-subtitle">Real-time monitoring for a smarter learning space</p>
+          </div>
+        </div>
+
+        <!-- Clock & Sun Day Capsule -->
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div id="realtime-status-strip" style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; padding:6px 14px; border-radius:20px; color:#fff; background:#10b981; box-shadow:0 2px 8px rgba(16,185,129,0.25); transition:all 0.3s ease;">
+            <i class="fa-solid fa-circle-dot" style="font-size:10px;"></i>
+            <span>Supabase Sync Active</span>
+          </div>
+
+          <div class="header-time-capsule">
+            <div class="time-clock-icon">
+              <i class="fa-regular fa-clock"></i>
+            </div>
+            <div class="time-text-col">
+              <span class="time-now" id="clock-time">10:24 AM</span>
+              <span class="date-now" id="clock-date">Nov 9, 2026</span>
+            </div>
+            <div class="capsule-divider"></div>
+            <div class="time-weather-icon">
+              <i class="fa-regular fa-sun sun-icon-glow"></i>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- ============================================================== -->
+      <!-- TAB 1: DASHBOARD VIEW (100% Pixel-Perfect Match to Photo)       -->
+      <!-- ============================================================== -->
+      <section class="tab-pane active" id="view-dashboard">
+        
+        <!-- 4 TOP SENSOR CARDS -->
+        <div class="metric-cards-grid">
+          
+          <!-- 1. TEMPERATURE CARD -->
+          <div class="metric-card card-temp active-filter-card" id="card-temp" data-sensor="temperature" title="Click to filter graph for Temperature">
+            <!-- Smooth Pastel Pink Liquid Wave -->
+            <svg class="card-wave-svg" viewBox="0 0 160 80" preserveAspectRatio="none">
+              <path d="M0,80 C40,45 90,75 160,30 L160,80 Z" fill="#fbcfe8" opacity="0.6"/>
+              <path d="M20,80 C70,55 110,75 160,42 L160,80 Z" fill="#fda4af" opacity="0.45"/>
+            </svg>
+
+            <div class="metric-card-content">
+              <div class="metric-icon-circle icon-temp">
+                <i class="fa-solid fa-temperature-half"></i>
+              </div>
+              <div class="metric-data-col">
+                <span class="metric-label">Temp</span>
+                <span class="metric-value" id="val-temp">28.0°C</span>
+                <div class="metric-badge-wrap">
+                  <span class="metric-status-pill pill-green" id="pill-temp">
+                    <i class="fa-solid fa-circle-check"></i> <span id="text-temp-pill">Normal</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. HUMIDITY CARD -->
+          <div class="metric-card card-humidity" id="card-humidity" data-sensor="humidity" title="Click to filter graph for Humidity">
+            <!-- Smooth Sky Blue Liquid Wave -->
+            <svg class="card-wave-svg" viewBox="0 0 160 80" preserveAspectRatio="none">
+              <path d="M0,80 C35,42 85,72 160,25 L160,80 Z" fill="#bae6fd" opacity="0.65"/>
+              <path d="M25,80 C70,52 115,72 160,40 L160,80 Z" fill="#7dd3fc" opacity="0.45"/>
+            </svg>
+
+            <div class="metric-card-content">
+              <div class="metric-icon-circle icon-humidity">
+                <i class="fa-solid fa-droplet"></i>
+              </div>
+              <div class="metric-data-col">
+                <span class="metric-label">Humidity</span>
+                <span class="metric-value" id="val-hum">60%</span>
+                <div class="metric-badge-wrap">
+                  <span class="metric-status-pill pill-green" id="pill-hum">
+                    <i class="fa-solid fa-circle-check"></i> <span id="text-hum-pill">Normal</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. LIGHT LEVEL CARD -->
+          <div class="metric-card card-light" id="card-light" data-sensor="light" title="Click to filter graph for Light">
+            <!-- Smooth Warm Golden Liquid Wave -->
+            <svg class="card-wave-svg" viewBox="0 0 160 80" preserveAspectRatio="none">
+              <path d="M0,80 C40,45 85,70 160,28 L160,80 Z" fill="#fde68a" opacity="0.65"/>
+              <path d="M30,80 C75,52 110,70 160,42 L160,80 Z" fill="#fcd34d" opacity="0.45"/>
+            </svg>
+
+            <div class="metric-card-content">
+              <div class="metric-icon-circle icon-light">
+                <i class="fa-solid fa-sun"></i>
+              </div>
+              <div class="metric-data-col">
+                <span class="metric-label">Light Level</span>
+                <span class="metric-value" id="val-light">82%</span>
+                <div class="metric-badge-wrap">
+                  <span class="metric-status-pill pill-amber" id="pill-light">
+                    <i class="fa-solid fa-circle-check"></i> <span id="text-light-pill">Good</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. AIR QUALITY CARD -->
+          <div class="metric-card card-air" id="card-air" data-sensor="airQuality" title="Click to filter graph for Air Quality">
+            <!-- Smooth Lavender Violet Liquid Wave -->
+            <svg class="card-wave-svg" viewBox="0 0 160 80" preserveAspectRatio="none">
+              <path d="M0,80 C35,42 85,72 160,30 L160,80 Z" fill="#ddd6fe" opacity="0.65"/>
+              <path d="M25,80 C70,52 115,72 160,42 L160,80 Z" fill="#c4b5fd" opacity="0.45"/>
+            </svg>
+
+            <div class="metric-card-content">
+              <div class="metric-icon-circle icon-air">
+                <i class="fa-solid fa-wind"></i>
+              </div>
+              <div class="metric-data-col">
+                <span class="metric-label">Air Quality</span>
+                <span class="metric-value" id="val-air">422</span>
+                <div class="metric-badge-wrap">
+                  <span class="metric-status-pill pill-green" id="pill-air">
+                    <i class="fa-solid fa-circle-check"></i> <span id="text-air-pill">Good</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- MIDDLE ROW: SENSOR TRENDS CHART & ALERTS CARD -->
+        <div class="middle-section-grid">
+          
+          <!-- SENSOR TRENDS CARD (Left ~68% width) -->
+          <div class="trends-chart-card">
+            <div class="trends-header-row">
+              <div class="trends-title-left">
+                <span class="trends-chart-icon"><i class="fa-solid fa-chart-simple"></i></span>
+                <h3 class="trends-card-title">Sensor Trends</h3>
+              </div>
+              
+              <!-- Time Range Toggle Pills (1h active purple, 6h, 12h, 24h) -->
+              <div class="time-range-toggles">
+                <button class="time-toggle-btn active" data-range="1h">1h</button>
+                <button class="time-toggle-btn" data-range="6h">6h</button>
+                <button class="time-toggle-btn" data-range="12h">12h</button>
+                <button class="time-toggle-btn" data-range="24h">24h</button>
+              </div>
+            </div>
+
+            <!-- Sensor Legend (Matching Photo: Red Temp, Blue Humidity, Amber Light, Purple Air Quality) -->
+            <div class="chart-legend-row">
+              <button class="legend-filter-btn" data-sensor="all" id="legend-all" title="Show all sensors">
+                <span class="legend-color-dot dot-all"></span>
+                <span class="legend-label">All Sensors</span>
+              </button>
+              <button class="legend-filter-btn" data-sensor="temperature" id="legend-temp" title="Filter Temperature">
+                <span class="legend-color-dot dot-temp"></span>
+                <span class="legend-label">Temperature (°C)</span>
+              </button>
+              <button class="legend-filter-btn" data-sensor="humidity" id="legend-hum" title="Filter Humidity">
+                <span class="legend-color-dot dot-hum"></span>
+                <span class="legend-label">Humidity (%)</span>
+              </button>
+              <button class="legend-filter-btn" data-sensor="light" id="legend-light" title="Filter Light">
+                <span class="legend-color-dot dot-light"></span>
+                <span class="legend-label">Light (%)</span>
+              </button>
+              <button class="legend-filter-btn" data-sensor="airQuality" id="legend-air" title="Filter Air Quality">
+                <span class="legend-color-dot dot-air"></span>
+                <span class="legend-label">Air Quality</span>
+              </button>
+            </div>
+
+            <!-- Canvas wrapper -->
+            <div class="chart-canvas-container">
+              <canvas id="sensorTrendsCanvas"></canvas>
+            </div>
+          </div>
+
+          <!-- ALERTS CARD (Right ~32% width) -->
+          <div class="alerts-summary-card">
+            <!-- Beautiful Mint Liquid Wave at Bottom-Right of Alerts Card -->
+            <svg class="alerts-corner-wave" viewBox="0 0 200 120" preserveAspectRatio="none">
+              <path d="M0,120 C50,75 100,105 200,45 L200,120 Z" fill="#99f6e4" opacity="0.65"/>
+              <path d="M30,120 C85,85 130,110 200,60 L200,120 Z" fill="#5eead4" opacity="0.45"/>
+            </svg>
+
+            <div class="alerts-header-row">
+              <div class="alerts-title-left">
+                <i class="fa-solid fa-bell alerts-bell-icon"></i>
+                <h3 class="alerts-card-title">Alerts</h3>
+              </div>
+              <a href="#alerts" class="alerts-view-all-link" id="link-goto-alerts">
+                View All <i class="fa-solid fa-arrow-right"></i>
+              </a>
+            </div>
+
+            <div class="alerts-body-centered">
+              <!-- Safe State (Exact Match to Photo) -->
+              <div class="alerts-safe-container" id="safe-alerts-display">
+                <div class="alerts-green-circle">
+                  <i class="fa-solid fa-check"></i>
+                </div>
+                <h4 class="alerts-status-text">No Alerts</h4>
+                <p class="alerts-sub-text">All parameters are within safe range.</p>
+              </div>
+
+              <!-- Active Warning Container (Displayed when thresholds are crossed) -->
+              <div class="alerts-active-container" id="active-alerts-display" style="display: none;"></div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- BOTTOM BANNER: RECOMMENDATION -->
+        <div class="recommendation-card">
+          <!-- Sprouting Green Leaf Plant on the Far Right -->
+          <div class="rec-leaf-art">
+            <svg width="44" height="44" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M38 40C38 30 32 24 24 22C32 18 38 10 38 4C30 4 22 10 18 18C14 14 8 12 2 12C2 20 8 28 16 30C16 36 20 42 26 44L38 40Z" fill="#10b981" fill-opacity="0.95"/>
+              <path d="M24 22C24 32 26 42 26 44" stroke="#059669" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+
+          <div class="rec-content-left">
+            <div class="rec-bulb-icon">
+              <i class="fa-regular fa-lightbulb"></i>
+            </div>
+            <div class="rec-divider-line"></div>
+            <div class="rec-text-wrap">
+              <h4 class="rec-title">Recommendation</h4>
+              <p class="rec-body" id="disp-recommendation">
+                Keep monitoring for any sudden changes in temperature or humidity.
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ============================================================== -->
+      <!-- TAB 2: LIVE DATA VIEW                                          -->
+      <!-- ============================================================== -->
+      <section class="tab-pane" id="view-live">
+        <div class="section-card-panel">
+          <div class="panel-header-row">
+            <div>
+              <span class="live-pill-tag"><i class="fa-solid fa-circle"></i> Live Streaming Active</span>
+              <h2 class="panel-title">Real-Time Sensor Telemetry</h2>
+              <p class="panel-subtitle">Direct Wokwi ESP32 stream connected to Supabase Database with Realtime WebSockets.</p>
+            </div>
+            <div class="panel-actions-group">
+              <button class="btn-primary-action" id="btn-toggle-stream">
+                <i class="fa-solid fa-pause"></i> Pause Stream
+              </button>
+              <button class="btn-secondary-action" id="btn-clear-table">
+                <i class="fa-solid fa-trash-can"></i> Clear Table
+              </button>
+            </div>
+          </div>
+
+          <!-- 4 Telemetry Gauge Cards -->
+          <div class="telemetry-grid">
+            <div class="telemetry-box">
+              <div class="telemetry-top">
+                <span><i class="fa-solid fa-temperature-half text-temp"></i> Temperature</span>
+                <span class="telemetry-pin">ESP32 Pin 15 (DHT22)</span>
+              </div>
+              <div class="telemetry-val-row">
+                <span class="telemetry-big-num" id="live-gauge-temp">28.0</span>
+                <span class="telemetry-unit">°C</span>
+              </div>
+              <div class="telemetry-footer">Target: 20°C - 30°C | Status: Optimal</div>
+            </div>
+
+            <div class="telemetry-box">
+              <div class="telemetry-top">
+                <span><i class="fa-solid fa-droplet text-hum"></i> Humidity</span>
+                <span class="telemetry-pin">ESP32 Pin 15 (DHT22)</span>
+              </div>
+              <div class="telemetry-val-row">
+                <span class="telemetry-big-num" id="live-gauge-hum">60</span>
+                <span class="telemetry-unit">%</span>
+              </div>
+              <div class="telemetry-footer">Relative RH: 40% - 70% | Status: Stable</div>
+            </div>
+
+            <div class="telemetry-box">
+              <div class="telemetry-top">
+                <span><i class="fa-solid fa-sun text-light"></i> Light Level</span>
+                <span class="telemetry-pin">ESP32 Pin 34 (ADC LDR)</span>
+              </div>
+              <div class="telemetry-val-row">
+                <span class="telemetry-big-num" id="live-gauge-light">82</span>
+                <span class="telemetry-unit">%</span>
+              </div>
+              <div class="telemetry-footer">Luminance: Classroom Compliant</div>
+            </div>
+
+            <div class="telemetry-box">
+              <div class="telemetry-top">
+                <span><i class="fa-solid fa-wind text-air"></i> Air Quality (AQI)</span>
+                <span class="telemetry-pin">ESP32 Pin 35 (MQ-135)</span>
+              </div>
+              <div class="telemetry-val-row">
+                <span class="telemetry-big-num" id="live-gauge-air">422</span>
+                <span class="telemetry-unit">AQI</span>
+              </div>
+              <div class="telemetry-footer">CO₂ & VOC: Clean (&lt;600 ppm)</div>
+            </div>
+          </div>
+
+          <!-- Live Packets Table -->
+          <div class="table-container-card">
+            <div class="table-card-head">
+              <h3>Ingestion Stream (Wokwi ESP32 ➔ Supabase ➔ Dashboard)</h3>
+              <span class="packet-tag" id="live-packets-count">0 Packets Received</span>
+            </div>
+            <div class="table-scroll-wrap">
+              <table class="telemetry-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Device</th>
+                    <th>Temperature</th>
+                    <th>Humidity</th>
+                    <th>Light Level</th>
+                    <th>Air Quality</th>
+                    <th>Database Status</th>
+                  </tr>
+                </thead>
+                <tbody id="telemetry-tbody">
+                  <!-- Real-time entries dynamically inserted -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================== -->
+      <!-- TAB 3: HISTORY VIEW                                            -->
+      <!-- ============================================================== -->
+      <section class="tab-pane" id="view-history">
+        <div class="section-card-panel">
+          <div class="panel-header-row">
+            <div>
+              <span class="live-pill-tag"><i class="fa-solid fa-clock-rotate-left"></i> Historical Query</span>
+              <h2 class="panel-title">Sensor History & Time Series Records</h2>
+              <p class="panel-subtitle">Retrieve stored sensor readings from Supabase, analyze trends, and export dataset.</p>
+            </div>
+            <div class="panel-actions-group">
+              <button class="btn-primary-action" id="btn-export-csv"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
+              <button class="btn-secondary-action" id="btn-export-json"><i class="fa-solid fa-download"></i> Download JSON</button>
+            </div>
+          </div>
+
+          <!-- History Filter Bar -->
+          <div class="history-controls-row">
+            <div class="filter-dropdowns">
+              <label class="dropdown-item">
+                <span>Timeframe:</span>
+                <select id="history-time-select" class="clean-select">
+                  <option value="1h">Past 1 Hour</option>
+                  <option value="6h">Past 6 Hours</option>
+                  <option value="12h">Past 12 Hours</option>
+                  <option value="24h">Past 24 Hours</option>
+                </select>
+              </label>
+              <label class="dropdown-item">
+                <span>Location:</span>
+                <select class="clean-select">
+                  <option value="Room 302">Room 302 (Primary)</option>
+                  <option value="Lab 101">Lab 101</option>
+                </select>
+              </label>
+            </div>
+            <button class="btn-refresh-data" id="btn-refresh-history"><i class="fa-solid fa-arrows-rotate"></i> Query Supabase</button>
+          </div>
+
+          <!-- Summary Mini Cards -->
+          <div class="history-metrics-row">
+            <div class="hist-mini-card">
+              <span class="mini-label">Avg Temperature</span>
+              <span class="mini-val text-temp" id="hist-avg-temp">28.4 °C</span>
+            </div>
+            <div class="hist-mini-card">
+              <span class="mini-label">Avg Humidity</span>
+              <span class="mini-val text-hum" id="hist-avg-hum">60.2 %</span>
+            </div>
+            <div class="hist-mini-card">
+              <span class="mini-label">Avg Light</span>
+              <span class="mini-val text-light" id="hist-avg-light">78.5 %</span>
+            </div>
+            <div class="hist-mini-card">
+              <span class="mini-label">Peak AQI</span>
+              <span class="mini-val text-air" id="hist-peak-aqi">445 AQI</span>
+            </div>
+          </div>
+
+          <div class="table-container-card">
+            <div class="table-card-head">
+              <h3>Supabase PostgreSQL Archived Records</h3>
+              <span class="packet-tag" id="hist-records-count">4 Records</span>
+            </div>
+            <div class="table-scroll-wrap">
+              <table class="telemetry-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Classroom</th>
+                    <th>Temperature</th>
+                    <th>Humidity</th>
+                    <th>Light</th>
+                    <th>Air Quality</th>
+                    <th>Condition</th>
+                  </tr>
+                </thead>
+                <tbody id="history-tbody">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================== -->
+      <!-- TAB 4: ALERTS VIEW                                             -->
+      <!-- ============================================================== -->
+      <section class="tab-pane" id="view-alerts">
+        <div class="section-card-panel">
+          <div class="panel-header-row">
+            <div>
+              <span class="live-pill-tag alert-red"><i class="fa-solid fa-bell"></i> Safety Management</span>
+              <h2 class="panel-title">Environmental Incidents & Safety Triggers</h2>
+              <p class="panel-subtitle">Review active warning flags and configure safety thresholds.</p>
+            </div>
+            <button class="btn-primary-action" id="btn-ack-alerts"><i class="fa-solid fa-check-double"></i> Acknowledge All</button>
+          </div>
+
+          <div class="alerts-layout-cols">
+            <div class="alerts-list-col">
+              <div class="sub-col-header">
+                <h3>Active Environmental Warnings</h3>
+                <span class="badge-count" id="active-incidents-badge">2 Active</span>
+              </div>
+              <div class="incident-cards-stack" id="incident-cards-container">
+                <div class="incident-item warning">
+                  <div class="incident-ico-box"><i class="fa-solid fa-temperature-arrow-up"></i></div>
+                  <div class="incident-body">
+                    <div class="incident-head">
+                      <h4>Temperature Spike Warning (33.2°C)</h4>
+                      <span class="incident-time">8 mins ago</span>
+                    </div>
+                    <p>Temperature crossed classroom comfort limits (&gt;30°C). Air conditioning or window ventilation advised.</p>
+                  </div>
+                  <button class="btn-resolve" onclick="this.closest('.incident-item').remove(); updateBadgeAfterResolve();"><i class="fa-solid fa-check"></i> Resolve</button>
+                </div>
+
+                <div class="incident-item info">
+                  <div class="incident-ico-box"><i class="fa-solid fa-wind"></i></div>
+                  <div class="incident-body">
+                    <div class="incident-head">
+                      <h4>Air Quality Advisory (480 AQI)</h4>
+                      <span class="incident-time">22 mins ago</span>
+                    </div>
+                    <p>Elevated CO₂ concentration observed during classroom group discussion. Natural ventilation suggested.</p>
+                  </div>
+                  <button class="btn-resolve" onclick="this.closest('.incident-item').remove(); updateBadgeAfterResolve();"><i class="fa-solid fa-check"></i> Resolve</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Safety Threshold Limits Config -->
+            <div class="thresholds-col">
+              <div class="threshold-card">
+                <h3><i class="fa-solid fa-sliders text-purple"></i> Safety Threshold Limits</h3>
+                <p>System flags automated warnings when live Wokwi sensor data crosses these bounds.</p>
+                
+                <form id="thresholds-form" onsubmit="event.preventDefault(); alert('Safety limits saved!');">
+                  <div class="form-input-group">
+                    <label>Max Temperature Threshold (°C)</label>
+                    <input type="number" class="modern-input" id="cfg-temp-max" value="32.0" step="0.5">
+                  </div>
+                  <div class="form-input-group">
+                    <label>Max Humidity Threshold (%)</label>
+                    <input type="number" class="modern-input" id="cfg-hum-max" value="75" step="1">
+                  </div>
+                  <div class="form-input-group">
+                    <label>Hazardous Air Quality Threshold (AQI)</label>
+                    <input type="number" class="modern-input" id="cfg-aqi-max" value="700" step="10">
+                  </div>
+                  <button type="submit" class="btn-primary-action full-width"><i class="fa-solid fa-floppy-disk"></i> Save Thresholds</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================== -->
+      <!-- TAB 5: REPORTS VIEW                                            -->
+      <!-- ============================================================== -->
+      <section class="tab-pane" id="view-reports">
+        <div class="section-card-panel">
+          <div class="panel-header-row">
+            <div>
+              <span class="live-pill-tag green"><i class="fa-solid fa-award"></i> Compliance Assessment</span>
+              <h2 class="panel-title">Classroom Environmental Health Report</h2>
+              <p class="panel-subtitle">Comprehensive comfort evaluation according to educational facility guidelines.</p>
+            </div>
+            <button class="btn-primary-action" onclick="window.print();"><i class="fa-solid fa-print"></i> Print / PDF Report</button>
+          </div>
+
+          <!-- Overall Score Card -->
+          <div class="compliance-score-banner">
+            <div class="score-circle-pill">
+              <span class="score-main">94</span>
+              <span class="score-denominator">/100</span>
+            </div>
+            <div class="score-desc-col">
+              <span class="grade-pill">Grade A - Optimal Learning Environment</span>
+              <h3>Classroom Comfort & Alertness Index</h3>
+              <p>Room 302 complies with international thermal and ventilation benchmarks, keeping student alertness in the 95th percentile.</p>
+            </div>
+          </div>
+
+          <!-- 4 Pillars -->
+          <div class="pillars-grid">
+            <div class="pillar-box">
+              <div class="pillar-head">
+                <span><i class="fa-solid fa-temperature-half text-temp"></i> Thermal Comfort</span>
+                <strong>96%</strong>
+              </div>
+              <div class="pillar-progress"><div class="pillar-fill fill-temp" style="width: 96%;"></div></div>
+              <p>Stable indoor temperatures throughout learning sessions.</p>
+            </div>
+
+            <div class="pillar-box">
+              <div class="pillar-head">
+                <span><i class="fa-solid fa-wind text-air"></i> Clean Air & Oxygen</span>
+                <strong>92%</strong>
+              </div>
+              <div class="pillar-progress"><div class="pillar-fill fill-air" style="width: 92%;"></div></div>
+              <p>CO₂ levels consistently safe with good circulation.</p>
+            </div>
+
+            <div class="pillar-box">
+              <div class="pillar-head">
+                <span><i class="fa-solid fa-sun text-light"></i> Lighting Adequacy</span>
+                <strong>95%</strong>
+              </div>
+              <div class="pillar-progress"><div class="pillar-fill fill-light" style="width: 95%;"></div></div>
+              <p>Natural daylight supplemented by glare-free illumination.</p>
+            </div>
+
+            <div class="pillar-box">
+              <div class="pillar-head">
+                <span><i class="fa-solid fa-droplet text-hum"></i> Relative Humidity</span>
+                <strong>93%</strong>
+              </div>
+              <div class="pillar-progress"><div class="pillar-fill fill-hum" style="width: 93%;"></div></div>
+              <p>RH stabilized at ~60% to prevent respiratory discomfort.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================== -->
+      <!-- TAB 6: SETTINGS VIEW (Configure Supabase Credentials in 1 Click)-->
+      <!-- ============================================================== -->
+      <section class="tab-pane" id="view-settings">
+        <div class="section-card-panel">
+          <div class="panel-header-row">
+            <div>
+              <span class="live-pill-tag"><i class="fa-solid fa-gear"></i> System Configuration</span>
+              <h2 class="panel-title">Supabase Database & Sensor Settings</h2>
+              <p class="panel-subtitle">Configure your Supabase Cloud Database credentials, Wokwi IoT endpoint, and classroom profile.</p>
+            </div>
+          </div>
+
+          <div class="settings-cards-grid">
+            <div class="settings-box">
+              <div class="settings-head"><i class="fa-solid fa-database text-purple"></i> <h3>Supabase Cloud Database Connection</h3></div>
+              <div class="settings-body">
+                <label class="form-input-group">
+                  <span>Supabase Project URL:</span>
+                  <input type="text" class="modern-input" id="cfg-supabase-url" placeholder="https://your-project.supabase.co">
+                </label>
+                <label class="form-input-group">
+                  <span>Supabase Anon Public Key:</span>
+                  <input type="text" class="modern-input" id="cfg-supabase-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+                </label>
+                <div class="db-indicator-box">
+                  <span class="db-dot-live online" id="cfg-db-dot"></span>
+                  <span id="cfg-db-status">Status: Supabase Ready</span>
+                </div>
+                <button class="btn-primary-action" id="btn-save-supabase" style="margin-top: 8px;">
+                  <i class="fa-solid fa-plug"></i> Save & Connect Supabase
+                </button>
+                <p class="settings-hint" style="margin-top: 10px;">
+                  Get these from your <a href="https://supabase.com" target="_blank" style="color:#7c3aed; font-weight:700;">Supabase Dashboard</a> ➔ Project Settings ➔ API.
+                </p>
+              </div>
+            </div>
+
+            <div class="settings-box">
+              <div class="settings-head"><i class="fa-solid fa-microchip text-purple"></i> <h3>Wokwi Direct Supabase REST Ingestion</h3></div>
+              <div class="settings-body">
+                <label class="form-input-group">
+                  <span>Supabase REST API Target:</span>
+                  <input type="text" class="modern-input" id="cfg-wokwi-endpoint" value="https://<YOUR-PROJECT>.supabase.co/rest/v1/sensor_readings" readonly>
+                </label>
+                <label class="form-input-group">
+                  <span>Wokwi Virtual WiFi:</span>
+                  <input type="text" class="modern-input" value="Wokwi-GUEST (No Password)" readonly>
+                </label>
+                <p class="settings-hint">
+                  <strong>Zero Node.js & Zero ngrok required!</strong> The ESP32 in Wokwi sends HTTPS POST directly to Supabase over the cloud, and Supabase pushes live updates to this dashboard via WebSockets!
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- FLOATING WOKWI CONTROLLER & LIVE TEST SLIDER DRAWER -->
+  <button class="floating-wokwi-trigger" id="btn-toggle-sim-drawer" title="Open Live Wokwi & Sensor Controller">
+    <i class="fa-solid fa-sliders"></i>
+    <span class="trigger-label">Wokwi Live Controller</span>
+  </button>
+
+  <div class="wokwi-drawer-drawer" id="wokwi-drawer">
+    <div class="drawer-header">
+      <div class="drawer-header-left">
+        <i class="fa-solid fa-microchip"></i>
+        <h3>Wokwi ESP32 Live Controller</h3>
+      </div>
+      <button class="drawer-close-btn" id="btn-close-sim-drawer">&times;</button>
+    </div>
+
+    <div class="drawer-content">
+      <p class="drawer-intro">
+        Drag sliders below to change sensor values in real time. Values instantly save to Supabase and update the dashboard graphs!
+      </p>
+
+      <!-- Temperature Slider -->
+      <div class="control-slider-box">
+        <div class="slider-title-row">
+          <span class="slider-name"><i class="fa-solid fa-temperature-half text-temp"></i> Temperature (DHT22):</span>
+          <span class="slider-display-val" id="disp-slider-temp">28.0 °C</span>
+        </div>
+        <input type="range" id="slider-temp" min="15.0" max="45.0" step="0.5" value="28.0" class="range-input slider-temp-track">
+      </div>
+
+      <!-- Humidity Slider -->
+      <div class="control-slider-box">
+        <div class="slider-title-row">
+          <span class="slider-name"><i class="fa-solid fa-droplet text-hum"></i> Humidity (DHT22):</span>
+          <span class="slider-display-val" id="disp-slider-hum">60 %</span>
+        </div>
+        <input type="range" id="slider-hum" min="10" max="95" step="1" value="60" class="range-input slider-hum-track">
+      </div>
+
+      <!-- Light Level Slider -->
+      <div class="control-slider-box">
+        <div class="slider-title-row">
+          <span class="slider-name"><i class="fa-solid fa-sun text-light"></i> Light Level (LDR):</span>
+          <span class="slider-display-val" id="disp-slider-light">82 %</span>
+        </div>
+        <input type="range" id="slider-light" min="0" max="100" step="1" value="82" class="range-input slider-light-track">
+      </div>
+
+      <!-- Air Quality Slider -->
+      <div class="control-slider-box">
+        <div class="slider-title-row">
+          <span class="slider-name"><i class="fa-solid fa-wind text-air"></i> Air Quality (MQ-135):</span>
+          <span class="slider-display-val" id="disp-slider-air">422</span>
+        </div>
+        <input type="range" id="slider-air" min="100" max="1000" step="10" value="422" class="range-input slider-air-track">
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="drawer-actions-col">
+        <button class="btn-push-live" id="btn-push-reading">
+          <i class="fa-solid fa-paper-plane"></i> Push to Dashboard & Supabase
+        </button>
+        <button class="btn-auto-stream" id="btn-auto-stream">
+          <i class="fa-solid fa-play"></i> Start Auto Fluctuation
+        </button>
+      </div>
+
+      <!-- Wokwi Setup Info -->
+      <div class="drawer-wokwi-info">
+        <h4><i class="fa-solid fa-satellite-dish"></i> Wokwi Direct Cloud Integration</h4>
+        <p>In Wokwi, load <code>wokwi/sketch.ino</code> and <code>wokwi/diagram.json</code>.</p>
+        <div class="code-pill">POST /rest/v1/sensor_readings</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/chart-handler.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
